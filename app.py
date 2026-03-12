@@ -3,24 +3,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.stats as stats
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
 
-# Sivun otsikko
-st.title("🎓 Student Dropout Analysis")
-st.markdown("Minimal Exploratory Data Analysis (EDA) on the Student Dropout Dataset.")
+# Title
+st.title("🎓 Student Dropout Analysis & Prediction")
 
 # 1. Load the dataset
-# Oletetaan, että dataset on samassa kansiossa GitHubissa
 @st.cache_data
 def load_data():
+    # CSV file
     df = pd.read_csv("student_dropout_dataset.csv")
     return df
 
 try:
     df = load_data()
 
-    # 2. Show basic info
+    # First header
     st.header("1. Dataset Overview")
-    
     st.subheader("First 5 rows")
     st.write(df.head())
 
@@ -28,69 +29,76 @@ try:
     with col1:
         st.subheader("Shape")
         st.write(f"Rows: **{df.shape[0]}**, Columns: **{df.shape[1]}**")
-    
     with col2:
         st.subheader("Missing values")
-        st.write(df.isnull().sum().sum())
+        st.write(f"Total missing: **{df.isnull().sum().sum()}**")
 
-    # 3. Compute descriptive statistics
-    st.header("2. Descriptive Statistics")
+    st.subheader("Descriptive Statistics")
     st.write(df.describe())
 
-    # 4. Create one simple visualization
-    st.header("3. Visualization")
-    
-    # Valitaan numeerinen sarake histogrammia varten (esim. ikä tai arvosanat)
-    # Muokkaa 'Age at enrollment' vastaamaan datasetin sarakkeen nimeä jos tarpeen
+    # Second
+    st.header("2. Distribution Visualization")
     numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-    selected_col = st.selectbox("Select a column to visualize:", numeric_cols)
+    viz_col = st.selectbox("Select column for histogram:", numeric_cols)
+    fig1, ax1 = plt.subplots()
+    sns.histplot(df[viz_col], kde=True, ax=ax1, color='skyblue')
+    st.pyplot(fig1)
 
-    fig, ax = plt.subplots()
-    sns.histplot(df[selected_col], kde=True, ax=ax, color='skyblue')
-    ax.set_title(f"Distribution of {selected_col}")
-
-    st.header("4. Correlation Analysis")
-
-    # Valitaan kaksi numeerista muuttujaa (voit muuttaa nämä vastaamaan datasetin sarakkeita)
+    # Third: Correlation Analysis
+    st.header("3. Correlation Analysis")
     var1 = 'Curricular units 1st sem (approved)'
     var2 = 'Curricular units 1st sem (grade)'
 
-        if var1 in df.columns and var2 in df.columns:
-        # Laske Pearsonin korrelaatio
-        correlation, p_value = stats.pearsonr(df[var1], df[var2])
-        
-        st.subheader(f"Correlation between {var1} and {var2}")
-        st.write(f"**Pearson correlation coefficient:** {correlation:.2f}")
+    if var1 in df.columns and var2 in df.columns:
+        correlation, _ = stats.pearsonr(df[var1], df[var2])
+        st.write(f"**Pearson correlation between {var1} and {var2}:** {correlation:.2f}")
 
-        # Luo scatter plot ja regressioviiva
         fig2, ax2 = plt.subplots()
-        sns.regplot(x=df[var1], y=df[var2], ax=ax2, 
-                    scatter_kws={'alpha':0.5}, line_kws={'color':'red'})
-        ax2.set_title(f"Scatter plot: {var1} vs {var2}")
+        sns.regplot(x=df[var1], y=df[var2], ax=ax2, scatter_kws={'alpha':0.3}, line_kws={'color':'red'})
         st.pyplot(fig2)
 
-        # Tulkinta (3–5 lausetta)
-        st.subheader("Interpretation")
-        if correlation > 0.5:
-            strength = "strong"
-        direction = "positive"
-    elif correlation > 0.3:
-        strength = "moderate"
-        direction = "positive"
+        st.info(f"""
+        **Interpretation:** The correlation is {correlation:.2f}, which indicates a strong positive relationship. 
+        This means students who pass more units also tend to get higher grades. 
+        The result is logical as academic engagement usually reflects in both quantity and quality of credits.
+        """)
+
+    # Fourth:
+    st.header("4. Supervised Learning: Predicting Dropout")
+
+    if 'Target' in df.columns:
+        predictors = ['Curricular units 1st sem (approved)', 'Curricular units 1st sem (grade)', 'Age at enrollment']
+        
+        # Cleaning
+        available_predictors = [p for p in predictors if p in df.columns]
+        
+        X = df[available_predictors]
+        y = df['Target']
+
+        # 1. Train-test split (70/30)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+        # 2. Train model (Decision Tree)
+        model = DecisionTreeClassifier(max_depth=3)
+        model.fit(X_train, y_train)
+
+        # 3. Evaluate
+        y_pred = model.predict(X_test)
+        acc = accuracy_score(y_test, y_pred)
+
+        st.subheader("Model Results")
+        st.write(f"Used predictors: *{', '.join(available_predictors)}*")
+        st.write(f"**Model Accuracy:** {acc:.2%}")
+
+        # 4. Interpretation
+        st.success(f"""
+        **Interpretation:** The Decision Tree model achieved an accuracy of {acc:.2%}. 
+        This suggests that the model can predict the student's status relatively well based on their first-semester performance and age. 
+        The result makes sense because early academic success is often the strongest indicator of whether a student will graduate or drop out.
+        """)
     else:
-        strength = "weak"
-        direction = "positive"
+        st.warning("Target column not found for machine learning.")
 
-    st.write(f"""
-    The analysis shows a **{direction}** and **{strength}** correlation between approved units and grades. 
-    This means that as the number of approved units increases, the average grade also tends to rise. 
-    The result makes a lot of sense, as successful students usually perform well both in terms of credit accumulation and grade point average. 
-    The scatter plot and the red regression line clearly visualize this upward trend.
-    """)
-else:
-    st.warning("Check your column names for correlation analysis!")
-    
-    st.pyplot(fig)
-
+# Error message
 except FileNotFoundError:
-    st.error("Datasetiä ei löytynyt. Varmista, että 'student_dropout_dataset.csv' on GitHub-reposi juuressa.")
+    st.error("Dataset 'student_dropout_dataset.csv' not found. Please check your GitHub repository.")
