@@ -7,9 +7,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
 
+# Otsikon asennus, ja leveä näyttötila
 st.set_page_config(page_title="Student Dropout Analysis", layout="wide")
+# Otsikko + logo
 st.title("🎓 Student Dropout Analysis & Prediction")
 
+# Streamlit'välimuisti
 @st.cache_data
 def load_data():
     return pd.read_csv("student_dropout_dataset.csv")
@@ -17,10 +20,12 @@ def load_data():
 try:
     df = load_data()
 
-    # --- 1. Dataset Overview ---
+    # 1. Dataset Overview
     st.header("1. Dataset Overview")
+    # ekat viisi riviä
     st.write("First 5 rows:", df.head())
     
+    # sarakkeet
     col1, col2, col3 = st.columns(3)
     col1.metric("Rows", df.shape[0])
     col2.metric("Columns", df.shape[1])
@@ -29,42 +34,50 @@ try:
     st.subheader("Descriptive Statistics")
     st.write(df.describe())
 
-    # --- 2. Visualization ---
+    # 2. Visualization
     st.header("2. Distribution of Student Ages")
+    # Matplotlib-kuvio ja akseli
     fig1, ax1 = plt.subplots()
+    # histogrammi iästä, KDE:n lisäys
     sns.histplot(df['age'], kde=True, ax=ax1, color='orange')
     st.pyplot(fig1)
 
-    # --- 3. Correlation Analysis ---
+    # 3. Correlation Analysis
     st.header("3. Correlation Analysis")
-    # Käytetään enrolled courses ja completed assignments
+    # Pearsson. Käytetään enrolled courses ja completed assignments
     c1, c2 = 'courses_enrolled', 'completed_assignments'
     
+    # korrelaatio ja p-arvo
     corr, p_val = stats.pearsonr(df[c1], df[c2])
     st.write(f"Pearson correlation between **{c1}** and **{c2}**: `{corr:.2f}`")
     
+    # piirtäminen, vaihda jos ei näytä hyvältä
     fig2, ax2 = plt.subplots()
+    # regressioviiva
     sns.regplot(data=df, x=c1, y=c2, ax=ax2, line_kws={"color": "red"}, scatter_kws={'alpha':0.3})
     st.pyplot(fig2)
     
+    # korrelaatio
     st.info(f"""
     **Interpretation:** The correlation is {corr:.2f}. 
     This indicates a positive relationship where students enrolled in more courses also tend to complete more assignments. 
     The result makes sense as it reflects overall academic activity levels.
     """)
 
-    # --- 4. Supervised Learning ---
+    # 4. Supervised Learning
     st.header("4. Machine Learning: Predicting Student Status")
     
-    # Valitaan predictorit ja target sinun tiedostostasi
+    # Valitaan predictorit ja target (ennustus)
     features = ['age', 'completion_rate', 'login_frequency', 'last_activity_days_ago']
-    target = 'label_name' # active, dropped, at-risk
+    target = 'label_name' 
     
     X = df[features]
     y = df[target]
 
+    # Testaus, 30% datasta
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     
+    # malli, max_depth ylioppimisen estämiseksi
     model = DecisionTreeClassifier(max_depth=4)
     model.fit(X_train, y_train)
     
