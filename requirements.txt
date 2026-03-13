@@ -1,6 +1,7 @@
 pandas
-streamlit
+streamlit==1.32.0
 matplotlib
 seaborn
 scipy
 scikit-learn
+altair==4.2.2
